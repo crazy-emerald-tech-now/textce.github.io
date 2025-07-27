@@ -1,23 +1,31 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Multi-User Chat</title>
+  <meta charset="UTF-8">
+  <title>TextCE Chat</title>
   <style>
-    body { font-family: sans-serif; background: #f9f9f9; }
-    #messages { list-style: none; padding: 0; max-height: 80vh; overflow-y: auto; }
-    #messages li { padding: 5px 10px; margin: 5px; border-radius: 5px; background: #eee; }
-    #form { display: flex; position: fixed; bottom: 0; width: 100%; }
-    #input { flex: 1; padding: 10px; border: none; }
-    #send { padding: 10px; background: #333; color: white; border: none; }
+    body { font-family: Arial, sans-serif; background: #f0f0f0; margin: 0; }
+    #chat { max-width: 800px; margin: auto; background: white; height: 90vh; display: flex; flex-direction: column; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    #messages { flex: 1; padding: 20px; overflow-y: auto; list-style: none; margin: 0; }
+    #messages li { margin-bottom: 10px; word-wrap: break-word; }
+    #form { display: flex; border-top: 1px solid #ccc; }
+    #input { flex: 1; padding: 12px; font-size: 16px; border: none; }
+    #input:focus { outline: none; }
+    #fileInput, #emojiBtn, #sendBtn { padding: 12px; background: #007bff; color: white; border: none; cursor: pointer; }
+    #fileInput { background: #28a745; }
+    img.preview { max-width: 200px; margin-top: 5px; display: block; }
   </style>
 </head>
 <body>
-  <ul id="messages"></ul>
-  <form id="form" action="">
-    <input id="input" autocomplete="off" placeholder="Type a message..." />
-    <button id="send">Send</button>
-  </form>
+  <div id="chat">
+    <ul id="messages"></ul>
+    <form id="form">
+      <input id="input" autocomplete="off" placeholder="Type your message..." />
+      <button type="button" id="emojiBtn">😊</button>
+      <input type="file" id="fileInput">
+      <button id="sendBtn">Send</button>
+    </form>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -31,11 +39,14 @@
     const form = document.getElementById('form');
     const input = document.getElementById('input');
     const messages = document.getElementById('messages');
+    const fileInput = document.getElementById('fileInput');
+    const emojiBtn = document.getElementById('emojiBtn');
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      if (input.value.trim()) {
-        socket.emit('chat message', input.value);
+      const msg = input.value.trim();
+      if (msg) {
+        socket.emit('chat message', msg);
         input.value = '';
       }
     });
@@ -46,6 +57,40 @@
       item.style.color = msg.color;
       messages.appendChild(item);
       messages.scrollTop = messages.scrollHeight;
+    });
+
+    socket.on('file', (msg) => {
+      const item = document.createElement('li');
+      item.textContent = `📎 ${msg.filename}`;
+      item.style.color = msg.color;
+
+      if (msg.type.startsWith('image/')) {
+        const blob = new Blob([msg.buffer], { type: msg.type });
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(blob);
+        img.classList.add('preview');
+        item.appendChild(img);
+      }
+
+      messages.appendChild(item);
+      messages.scrollTop = messages.scrollHeight;
+    });
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const arrayBuffer = reader.result;
+        socket.emit('upload', arrayBuffer, { filename: file.name, type: file.type });
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    emojiBtn.addEventListener('click', () => {
+      input.value += '😊';
+      input.focus();
     });
   </script>
 </body>
