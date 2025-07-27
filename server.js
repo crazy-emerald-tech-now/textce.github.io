@@ -1,13 +1,12 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http);
+const io = require('socket.io')(http, { maxHttpBufferSize: 1e8 });
 const PORT = process.env.PORT || 3000;
 
 app.use(express.static('public'));
 
 const usedColors = new Set();
-
 function getRandomColor() {
   const letters = '0123456789ABCDEF';
   let color;
@@ -22,14 +21,19 @@ function getRandomColor() {
 }
 
 io.on('connection', (socket) => {
-  const userColor = getRandomColor();
-  socket.color = userColor;
-
-  socket.emit('init', { color: userColor });
+  const color = getRandomColor();
+  socket.color = color;
+  socket.emit('init', { color });
 
   socket.on('chat message', (msg) => {
-    io.emit('chat message', {
-      text: msg,
+    io.emit('chat message', { text: msg, color: socket.color });
+  });
+
+  socket.on('upload', (arrayBuffer, meta) => {
+    io.emit('file', {
+      buffer: arrayBuffer,
+      filename: meta.filename,
+      type: meta.type,
       color: socket.color
     });
   });
